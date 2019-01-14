@@ -1,3 +1,7 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -16,34 +20,41 @@ public class Company {
 	@Property(propertyName = "com.mycompany.owner", defaultValue = "It's my company!")
 	private String companyOwner;
 
-	@Property(propertyName = "com.mycompany.years.old")
+	@Property(propertyName = "com.mycompany.years.old", defaultValue = "15")
 	private Integer companyAge;
 
-	// обработка поля пока не реализована
-	//	private Address companyAddress;
+	@Property(propertyName = "com.mycompany.address")
+	private Address companyAddress;
 
 	// поле для хранения единственного объекта класса
 	private static Company instance;
-	// дополнительный функционал к классу подключаю через композицию
-	// объекта класса обработчика файлов properties в поле текущего класса
-	private FilePropertiesHandler propertiesHandler;
 
-	// замена констуктора по умолчанию
-	private Company() {
-		doRefresh();
-	}
-
-	// метод ленивой инициализации объекта
+	/**
+	 * Метод для ленивой инициализации объекта
+	 *
+	 * @return объект класса
+	 */
 	public static Company getInstance() {
-		if (instance == null) instance = new Company();
+		// если объект еще не создавался,
+		if (instance == null) {
+			// то создать объект
+			instance = new Company();
+			// и вызвать на объекте метод установки значени полей из properties файла
+			instance.doRefresh();
+		} else {
+			// если объект уже существует, то просто актуализировать значения полей
+			instance.doRefresh();
+		}
 		return instance;
 	}
 
-	// метод находит все поля в текущем объекте, помеченные аннотацией @Property,
-	// и заполняю эти поля соответствующим значением лежащим в файле data.properties
+	/**
+	 * метод находит все поля в текущем объекте помеченные аннотацией @Property,
+	 * и заполняет эти поля соответствующим значением лежащим в файле data.properties
+	 */
 	public synchronized void doRefresh() {
 		// создается объект обработчика файла properties
-		propertiesHandler = new FilePropertiesHandler();
+		FilePropertiesHandler propertiesHandler = new FilePropertiesHandler();
 		// через рефлексию получаю массив всех полей текущего объекта
 		Field[] fields = this.getClass().getDeclaredFields();
 		// обхожу циклом все элементы массива
@@ -71,11 +82,10 @@ public class Company {
 						// нужный тип данных и помещаю в текущее поле
 						switch (fieldType) {
 							case "Integer":
-								int intValue = Integer.parseInt(value);
-								field.set(this, intValue);
+								field.set(this, getIntFromValue(value, annotation));
 								break;
 							case "Address":
-								// пока нет реализации
+								field.set(this, deserializeAddressObject(value, annotation));
 								break;
 							default:
 								// по умоланию, для строковых полей
@@ -89,12 +99,64 @@ public class Company {
 		}
 	}
 
+	/**
+	 * Метод парсинга строки в число с обработкой исключений
+	 *
+	 * @param value принимает значение в виде строки
+	 * @param annotation принимает объект аннотации
+	 * @return Integer, а если парсинг не удался то null
+	 */
+	private Integer getIntFromValue(String value, Property annotation) {
+		Integer result = null;
+		try {
+			result = Integer.parseInt(value);
+		} catch (Exception e) {
+//			e.printStackTrace();
+			System.out.println("Проблема с получением возраста компании из файла!");
+
+			System.out.println("Пробую взять дифолтное значение возраста из аннотации.");
+			try {
+				result = Integer.parseInt(annotation.defaultValue());
+			} catch (Exception e1) {
+				System.out.println("Взять дифолтное значение возраста из аннотации так же не удалось!");
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Метод десериализации объекта из строки
+	 *
+	 * @param stringForDeserialize сериализованный объект в виде строки
+	 * @param annotation принимает объект аннотации
+	 * @return десериализованный объект
+	 */
+	private Address deserializeAddressObject(String stringForDeserialize, Property annotation) {
+		ObjectMapper mapper = new ObjectMapper();
+		Address address = null;
+		try {
+			address = mapper.readValue(stringForDeserialize, Address.class);
+		} catch (IOException e) {
+//			e.printStackTrace();
+			System.out.println("Проблема с десериализацией адреса из файла!");
+
+			System.out.println("Пробую взять дифолтное значение из аннотации.");
+			try {
+				address = mapper.readValue(annotation.defaultValue(), Address.class);
+			} catch (Exception e1) {
+				System.out.println("Десериализовать адрес из дифолтного значения аннотации так же не удалось!");
+			}
+		}
+		return address;
+	}
+
 	@Override
 	public String toString() {
 		return "Company{" +
 				"companyName='" + companyName + '\'' +
 				", companyOwner='" + companyOwner + '\'' +
 				", companyAge=" + companyAge +
+				", companyAddress=" + companyAddress +
 				'}';
 	}
 }
