@@ -1,7 +1,7 @@
 /**
  * Artem Voytenko
  * 14.01.2019
- * <p>
+ *
  * Класс для хранения адреса в виде объекта
  */
 public class Address {
