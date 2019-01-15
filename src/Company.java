@@ -29,25 +29,29 @@ public class Company {
 	// поле для хранения единственного объекта класса
 	private static Company instance;
 
-	// свой логгер
+	// логгер класса
 	private static Logger logger = Logger.getLogger(Company.class.getName());
 
+	// скрываю конструктор, создание объекта только через статичный метод
+	private Company() {}
+
 	/**
-	 * Метод для ленивой инициализации объекта
+	 * Метод ленивой инициализации объекта, делаю его потокобезопасным
+	 * раз предполагается что может быть обращение к методу doRefresh()
+	 * в нескольких потоках, тогда и создание объекта пусть будет потокобезопасным
 	 *
 	 * @return объект класса
 	 */
-	public static Company getInstance() {
+	public static synchronized Company getInstance() {
 		// если объект еще не создавался,
 		if (instance == null) {
-			// то создать объект
-			instance = new Company();
-			// и вызвать на объекте метод установки значени полей из properties файла
-			instance.doRefresh();
-		} else {
-			// если объект уже существует, то просто актуализировать значения полей
-			instance.doRefresh();
+			synchronized (Company.class) {
+				// то создать объект
+				instance = new Company();
+			}
 		}
+		// и вызваю на объекте метод установки значени полей из файла properties
+		instance.doRefresh();
 		return instance;
 	}
 
