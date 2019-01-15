@@ -1,9 +1,9 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.logging.Logger;
 
 /**
  * Artem Voytenko
@@ -20,14 +20,17 @@ public class Company {
 	@Property(propertyName = "com.mycompany.owner", defaultValue = "It's my company!")
 	private String companyOwner;
 
-	@Property(propertyName = "com.mycompany.years.old", defaultValue = "15")
+	@Property(propertyName = "com.mycompany.years.old", defaultValue = "2")
 	private Integer companyAge;
 
-	@Property(propertyName = "com.mycompany.address")
+	@Property(propertyName = "com.mycompany.address", defaultValue = "{\"street\": \"Lenina\", \"home\": 11}")
 	private Address companyAddress;
 
 	// поле для хранения единственного объекта класса
 	private static Company instance;
+
+	// свой логгер
+	private static Logger logger = Logger.getLogger(Company.class.getName());
 
 	/**
 	 * Метод для ленивой инициализации объекта
@@ -57,9 +60,9 @@ public class Company {
 		FilePropertiesHandler propertiesHandler = new FilePropertiesHandler();
 		// через рефлексию получаю массив всех полей текущего объекта
 		Field[] fields = this.getClass().getDeclaredFields();
-		// обхожу циклом все элементы массива
+		// обхожу циклом все поля
 		for (Field field : fields) {
-			// делаю приватные поля доступными
+			// делаю приватное поле доступными
 			if (Modifier.isPrivate(field.getModifiers())) field.setAccessible(true);
 			// получаю у текущего поля аннотацию @Property
 			Property annotation = field.getAnnotation(Property.class);
@@ -68,7 +71,7 @@ public class Company {
 				// получаю имя поля propertyName аннотации @Property в виде строки
 				String key = annotation.propertyName();
 				// получаю из файла параметров value по имени поля аннотации
-				String value = propertiesHandler.getStringParam(key);
+				String value = propertiesHandler.getParamByName(key);
 				// если такой пары key:value не нашлось в файле properties или value
 				// оказалось пустым, тогда беру value из поля defaultValue аннотации
 				if (value == null) value = annotation.defaultValue();
@@ -92,7 +95,7 @@ public class Company {
 								field.set(this, value);
 						}
 					} catch (IllegalAccessException e) {
-						e.printStackTrace();
+						logger.warning("Проблема с обновлением значений в полях объекта!");
 					}
 				}
 			}
@@ -102,7 +105,7 @@ public class Company {
 	/**
 	 * Метод парсинга строки в число с обработкой исключений
 	 *
-	 * @param value принимает значение в виде строки
+	 * @param value      принимает значение в виде строки
 	 * @param annotation принимает объект аннотации
 	 * @return Integer, а если парсинг не удался то null
 	 */
@@ -111,14 +114,13 @@ public class Company {
 		try {
 			result = Integer.parseInt(value);
 		} catch (Exception e) {
-//			e.printStackTrace();
-			System.out.println("Проблема с получением возраста компании из файла!");
+			logger.warning("Проблема с получением возраста компании из файла!");
 
-			System.out.println("Пробую взять дифолтное значение возраста из аннотации.");
+			logger.info("Пробую взять дифолтное значение возраста из аннотации.");
 			try {
 				result = Integer.parseInt(annotation.defaultValue());
 			} catch (Exception e1) {
-				System.out.println("Взять дифолтное значение возраста из аннотации так же не удалось!");
+				logger.warning("Взять дифолтное значение возраста из аннотации так же не удалось!");
 			}
 		}
 		return result;
@@ -128,7 +130,7 @@ public class Company {
 	 * Метод десериализации объекта из строки
 	 *
 	 * @param stringForDeserialize сериализованный объект в виде строки
-	 * @param annotation принимает объект аннотации
+	 * @param annotation           принимает объект аннотации
 	 * @return десериализованный объект
 	 */
 	private Address deserializeAddressObject(String stringForDeserialize, Property annotation) {
@@ -137,14 +139,13 @@ public class Company {
 		try {
 			address = mapper.readValue(stringForDeserialize, Address.class);
 		} catch (IOException e) {
-//			e.printStackTrace();
-			System.out.println("Проблема с десериализацией адреса из файла!");
+			logger.warning("Проблема с десериализацией адреса из файла!");
 
-			System.out.println("Пробую взять дифолтное значение из аннотации.");
+			logger.info("Пробую взять дифолтное значение адресав из аннотации.");
 			try {
 				address = mapper.readValue(annotation.defaultValue(), Address.class);
 			} catch (Exception e1) {
-				System.out.println("Десериализовать адрес из дифолтного значения аннотации так же не удалось!");
+				logger.warning("Десериализовать адрес из дифолтного значения аннотации так же не удалось!");
 			}
 		}
 		return address;
