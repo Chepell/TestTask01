@@ -1,3 +1,4 @@
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,8 +41,8 @@ class FilePropertiesHandler {
 	 */
 	public FilePropertiesHandler(String fileName) {
 		file = "resources/" + fileName + ".properties";
-		try (InputStream stream = Files.newInputStream(Paths.get(file))) {
-			properties.load(stream);
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(file))) {
+			properties.load(reader);
 		} catch (IOException e) {
 			logger.warning("Не могу прочитать файл " + file);
 		}
@@ -62,7 +63,7 @@ class FilePropertiesHandler {
 		try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(file))) {
 			properties.store(writer, null);
 		} catch (IOException e) {
-			System.out.println("Can't write properties file");
+			logger.warning("Не могу записать обновленные свойства в файл " + file);
 		}
 	}
 
